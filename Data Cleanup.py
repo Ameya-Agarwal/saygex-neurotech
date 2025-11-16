@@ -9,7 +9,7 @@ import json
 barcodess = {}
 
 def loader(type):
-    with gzip.open(f"C:/Users/vinay/Desktop/Neurotech Project Proposals/SAYGEX/TCGA.{type}.sampleMap_HiSeqV2.gz", "rt") as f:
+    with gzip.open(f"./TCGA.{type}.sampleMap_HiSeqV2.gz", "rt") as f:
         return pd.read_csv(f, sep="\t", index_col=0)
 
 KICH_df = loader("KICH")
@@ -38,7 +38,7 @@ allofit(KICH_df, "KICH")
 
 
 #saving json file
-output_path = "C:/Users/vinay/Desktop/Neurotech Project Proposals/SAYGEX/metadata.json"
+output_path = "./metadata.json"
 with open(output_path, "w") as f:
     json.dump(barcodess, f, indent=4)
 
@@ -46,9 +46,4 @@ with open(output_path, "w") as f:
 Exp_Levels = pd.concat([KICH_df, KIRC_df, KIRP_df], axis = 1)
 
 #saving data frame as csv
-Exp_Levels.to_csv('C:/Users/vinay/Desktop/Neurotech Project Proposals/SAYGEX/ExpressionLevels.csv', index=True)
-
-
-
-
-
+Exp_Levels.to_csv('./ExpressionLevels.csv', index=True)
