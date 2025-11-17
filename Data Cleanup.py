@@ -1,10 +1,8 @@
-
 ## Importing libraries
 import pandas as pd
 import numpy as np
 import gzip
 import json
-
 
 barcodess = {}
 
@@ -36,7 +34,6 @@ allofit(KIRP_df, "KIRP")
 allofit(KIRC_df, "KIRC")
 allofit(KICH_df, "KICH")
 
-
 #saving json file
 output_path = "./metadata.json"
 with open(output_path, "w") as f:
@@ -47,3 +44,21 @@ Exp_Levels = pd.concat([KICH_df, KIRC_df, KIRP_df], axis = 1)
 
 #saving data frame as csv
 Exp_Levels.to_csv('./ExpressionLevels.csv', index=True)
+
+#list of clock genes
+Clock_Genes = ["CLOCK", "ARNTL", "ARNTL2", 
+               "NPAS2", "NR1D1", "NR1D2", "CRY1", 
+               "CRY2", "RORA", "RORB", 
+               "RORC", "PER1", "PER2",
+               "PER3"]
+
+#comparing with ExpressionLevels.csv
+exp = pd.read_csv("./ExpressionLevels.csv", index_col=0)
+match = [g for g in Clock_Genes if g in exp.index]
+
+#creating data frame with clock gene expression data
+clock_exp_df = exp.loc[match]
+clock_exp_df = clock_exp_df.reset_index().rename(columns={"index":"gene"})
+
+#saving data frame as csv
+clock_exp_df.to_csv("./ClockExpressionLevels.csv", index=False)
