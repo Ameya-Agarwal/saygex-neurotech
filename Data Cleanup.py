@@ -40,13 +40,11 @@ with open(output_path, "w") as f:
     json.dump(barcodess, f, indent=4)
 
 #combining dataframes
-Exp_Levels = pd.concat([KICH_df, KIRC_df, KIRP_df], axis = 1)
 Exp_Levels_KICH_KIRC = pd.concat([KICH_df, KIRC_df], axis = 1)
 Exp_Levels_KICH_KIRP = pd.concat([KICH_df, KIRP_df], axis = 1)
 Exp_Levels_KIRC_KIRP = pd.concat([KIRC_df, KIRP_df], axis = 1)
 
 #saving data frames as csvs
-Exp_Levels.to_csv('./ExpressionLevels.csv', index=True)
 Exp_Levels_KICH_KIRC.to_csv('./ExpressionLevels_KICH_KIRC.csv', index=True)
 Exp_Levels_KICH_KIRP.to_csv('./ExpressionLevels_KICH_KIRP.csv', index=True)
 Exp_Levels_KIRC_KIRP.to_csv('./ExpressionLevels_KIRC_KIRP.csv', index=True)
