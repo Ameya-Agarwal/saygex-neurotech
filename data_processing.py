@@ -15,7 +15,7 @@ os.makedirs("plots", exist_ok=True)
 
 
 df_KICH_KIRC = pd.read_csv(f"./csvs/ExpressionLevels_KICH_KIRC.csv", sep="\t", index_col=0)
-df_KICH_KIRP = pd.read_csv(f"./csvs//ExpressionLevels_KICH_KIRP.csv", sep="\t", index_col=0)
+df_KICH_KIRP = pd.read_csv(f"./csvs/ExpressionLevels_KICH_KIRP.csv", sep="\t", index_col=0)
 df_KIRC_KIRP = pd.read_csv(f"./csvs/ExpressionLevels_KIRC_KIRP.csv", sep="\t", index_col=0)
 
 #function to run all the tests on a pair of csv files
