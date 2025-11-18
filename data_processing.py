@@ -7,11 +7,16 @@ from sklearn.metrics import silhouette_score
 import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy import stats
+import os
 
 
-df_KICH_KIRC = pd.read_csv(f"./ExpressionLevels_KICH_KIRC.csv", sep="\t", index_col=0)
-df_KICH_KIRP = pd.read_csv(f"./ExpressionLevels_KICH_KIRP.csv", sep="\t", index_col=0)
-df_KIRC_KIRP = pd.read_csv(f"./ExpressionLevels_KIRC_KIRP.csv", sep="\t", index_col=0)
+os.makedirs("plots", exist_ok=True)
+
+
+
+df_KICH_KIRC = pd.read_csv(f"./csvs/ExpressionLevels_KICH_KIRC.csv", sep="\t", index_col=0)
+df_KICH_KIRP = pd.read_csv(f"./csvs//ExpressionLevels_KICH_KIRP.csv", sep="\t", index_col=0)
+df_KIRC_KIRP = pd.read_csv(f"./csvs/ExpressionLevels_KIRC_KIRP.csv", sep="\t", index_col=0)
 
 #function to run all the tests on a pair of csv files
 def analyze_tumor_pair(csv_file_path, json_labels_path):
@@ -21,93 +26,103 @@ def analyze_tumor_pair(csv_file_path, json_labels_path):
     with open(json_labels_path) as f:
         labels_dict = json.load(f)
 
-    # Transpose the matrix
     df_T = df_raw.transpose()
-    
-    # Map labels from the json to the tumor
     df_T['Tumor_Type'] = df_T.index.map(labels_dict)
 
-
-    # Check that we have exactly two tumor types
     tumor_types = df_T['Tumor_Type'].unique()
-        
     t1, t2 = tumor_types
     pair_name = f"{t1} vs {t2}"
 
-    # Separate features (X) and labels (y)
-    # Ensure no NaN values, which can break PCA/T-tests
-    df_T = df_T.dropna(axis=1, how='any') # Drop genes with any NaN
+    df_T = df_T.dropna(axis=1, how='any')
     X = df_T.drop('Tumor_Type', axis=1)
     y = df_T['Tumor_Type']
     
-    # --- 2. PCA ANALYSIS (FOR CLUSTER SEPARATION) ---
-    
-    # Standardize data (z-score scaling) is CRUCIAL for PCA
+    # --- PCA ---
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
-    # Perform PCA to reduce to 2 components
     pca = PCA(n_components=2)
     principal_components = pca.fit_transform(X_scaled)
     
-    # Calculate Silhouette Score:
     sil_score = silhouette_score(principal_components, y)
     
-    # --- 3. VOLCANO PLOT ANALYSIS (FOR GENE DIFFERENCES) ---
-    
+    # --- Volcano ---
     group1 = X[y == t1]
     group2 = X[y == t2]
     
-    # 1. X-AXIS: Log2 Fold Change
     log2_fc = group1.mean() - group2.mean()
     
-    # 2. Y-AXIS: -Log10 P-Value
     t_stats, p_vals = stats.ttest_ind(group1, group2)
-    p_vals = np.where(p_vals == 0, 1e-300, p_vals) # Handle -log10(0)
+    p_vals = np.where(p_vals == 0, 1e-300, p_vals)
     neg_log_pval = -np.log10(p_vals)
+
+    # Volcano coloring
+    sig = (neg_log_pval > -np.log10(0.05)) & (abs(log2_fc) > 1)
+    up = sig & (log2_fc > 1)
+    down = sig & (log2_fc < -1)
+
+    # --- PLOT PCA ---
+    plt.figure(figsize=(7, 6))
+    sns.scatterplot(x=principal_components[:, 0],
+                    y=principal_components[:, 1],
+                    hue=y,
+                    s=90,
+                    alpha=0.9,
+                    palette="Set1")
     
-    # --- 4. PLOTTING ---
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
-    
-    # Plot 1: PCA
-    sns.scatterplot(x=principal_components[:, 0], y=principal_components[:, 1], 
-                    hue=y, ax=ax1, s=80, alpha=0.8)
-    ax1.set_title(f'PCA: {pair_name}\nSeparation Score: {sil_score:.3f} (Higher is Better)', 
-                  fontweight='bold')
-    ax1.set_xlabel(f'Principal Component 1 ({pca.explained_variance_ratio_[0]*100:.1f}%)')
-    ax1.set_ylabel(f'Principal Component 2 ({pca.explained_variance_ratio_[1]*100:.1f}%)')
-    
-    # Plot 2: Volcano Plot
-    sns.scatterplot(x=log2_fc, y=neg_log_pval, ax=ax2, alpha=0.5, linewidth=0)
-    ax2.axhline(-np.log10(0.05), color='red', linestyle='--', label='P-Value = 0.05')
-    ax2.axvline(1, color='blue', linestyle='--', alpha=0.5, label='Log2 Fold Change = 1')
-    ax2.axvline(-1, color='blue', linestyle='--', alpha=0.5)
-    ax2.set_title(f'Volcano Plot: {pair_name}', fontweight='bold')
-    ax2.set_xlabel(f'Log2 Fold Change ({t1} / {t2})')
-    ax2.set_ylabel('-Log10 P-Value (Significance)')
-    ax2.legend()
+    plt.title(f"PCA: {pair_name}\nSilhouette: {sil_score:.3f}", fontweight="bold")
+    plt.xlabel(f"PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)")
+    plt.ylabel(f"PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)")
     
     plt.tight_layout()
-    plt.show()
-    
+    plt.savefig(f"plots/PCA_{t1}_vs_{t2}.png", dpi=300)
+    plt.close()
+
+    # --- PLOT VOLCANO ---
+    plt.figure(figsize=(7, 6))
+
+    # non-significant
+    plt.scatter(log2_fc[~sig], neg_log_pval[~sig],
+                color="lightgrey", s=12, alpha=0.6, label="Not significant")
+
+    # upregulated (positive log2FC)
+    plt.scatter(log2_fc[up], neg_log_pval[up],
+                color="red", s=18, alpha=0.8, label="Upregulated")
+
+    # downregulated (negative log2FC)
+    plt.scatter(log2_fc[down], neg_log_pval[down],
+                color="blue", s=18, alpha=0.8, label="Downregulated")
+
+    plt.axhline(-np.log10(0.05), color='black', linestyle='--')
+    plt.axvline(1, color='black', linestyle='--')
+    plt.axvline(-1, color='black', linestyle='--')
+
+    plt.title(f"Volcano Plot: {pair_name}", fontweight="bold")
+    plt.xlabel(f"Log2 Fold Change ({t1}/{t2})")
+    plt.ylabel("-Log10 P-Value")
+    plt.legend()
+
+    plt.tight_layout()
+    plt.savefig(f"plots/Volcano_{t1}_vs_{t2}.png", dpi=300)
+    plt.close()
+
     print(f"Analysis complete for {pair_name}. Score: {sil_score:.3f}\n")
     return pair_name, sil_score
-
     
 # --- Run the Analysis for all 3 Pairs ---
 all_results = []
 
 # Pair 1: KIRC vs KIRP (Should be easy to separate)
 
-pair1, score1 = analyze_tumor_pair('./ExpressionLevels_KIRC_KIRP.csv', './metadata.json')
+pair1, score1 = analyze_tumor_pair('./csvs/ExpressionLevels_KIRC_KIRP.csv', './json/metadata.json')
 all_results.append({"Pair": pair1, "Score": score1})
 
-pair2, score2 = analyze_tumor_pair('./ExpressionLevels_KICH_KIRC.csv', './metadata.json')
+pair2, score2 = analyze_tumor_pair('./csvs/ExpressionLevels_KICH_KIRC.csv', './json/metadata.json')
 all_results.append({"Pair": pair2, "Score": score2})
 
-pair3, score3 = analyze_tumor_pair('./ExpressionLevels_KICH_KIRP.csv', './metadata.json')
+pair3, score3 = analyze_tumor_pair('./csvs/ExpressionLevels_KICH_KIRP.csv', './json/metadata.json')
 all_results.append({"Pair": pair3, "Score": score3})
 
 # saving results
 results_df = pd.DataFrame(all_results).sort_values(by='Score', ascending=False)
-results_df.to_csv('./math_results.csv', index=True)
+results_df.to_csv('./csvs/math_results.csv', index=True)
