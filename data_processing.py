@@ -9,10 +9,7 @@ import matplotlib.pyplot as plt
 from scipy import stats
 import os
 
-
 os.makedirs("plots", exist_ok=True)
-
-
 
 df_KICH_KIRC = pd.read_csv(f"./csvs/ExpressionLevels_KICH_KIRC.csv", sep="\t", index_col=0)
 df_KICH_KIRP = pd.read_csv(f"./csvs/ExpressionLevels_KICH_KIRP.csv", sep="\t", index_col=0)
@@ -75,6 +72,7 @@ def analyze_tumor_pair(csv_file_path, json_labels_path):
     plt.ylabel(f"PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)")
     
     plt.tight_layout()
+    plt.grid(alpha=0.3)
     plt.savefig(f"plots/PCA_{t1}_vs_{t2}.png", dpi=300)
     plt.close()
 
@@ -87,11 +85,11 @@ def analyze_tumor_pair(csv_file_path, json_labels_path):
 
     # upregulated (positive log2FC)
     plt.scatter(log2_fc[up], neg_log_pval[up],
-                color="red", s=18, alpha=0.8, label="Upregulated")
+                color="indianred", s=18, alpha=0.8,  label=f"Upregulated in {t1}")
 
     # downregulated (negative log2FC)
     plt.scatter(log2_fc[down], neg_log_pval[down],
-                color="blue", s=18, alpha=0.8, label="Downregulated")
+                color="steelblue", s=18, alpha=0.8, label=f"Upregulated in {t2}")
 
     plt.axhline(-np.log10(0.05), color='black', linestyle='--')
     plt.axvline(1, color='black', linestyle='--')
@@ -100,6 +98,7 @@ def analyze_tumor_pair(csv_file_path, json_labels_path):
     plt.title(f"Volcano Plot: {pair_name}", fontweight="bold")
     plt.xlabel(f"Log2 Fold Change ({t1}/{t2})")
     plt.ylabel("-Log10 P-Value")
+    plt.grid(alpha=0.3)
     plt.legend()
 
     plt.tight_layout()
@@ -108,6 +107,7 @@ def analyze_tumor_pair(csv_file_path, json_labels_path):
 
     print(f"Analysis complete for {pair_name}. Score: {sil_score:.3f}\n")
     return pair_name, sil_score
+
     
 # --- Run the Analysis for all 3 Pairs ---
 all_results = []
