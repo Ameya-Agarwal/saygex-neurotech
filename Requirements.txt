@@ -1,6 +1,0 @@
-Numpy
-Pandas
-matplotlib
-seaborn
-scipy
-scikit-learn
