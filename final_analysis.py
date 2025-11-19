@@ -12,9 +12,9 @@ import os
 os.makedirs("plots", exist_ok=True)
 
 # Load Data
-df_KICH_KIRC = pd.read_csv(f"./ExpressionLevels_KICH_KIRC.csv", sep="\t", index_col=0)
-df_KICH_KIRP = pd.read_csv(f"./ExpressionLevels_KICH_KIRP.csv", sep="\t", index_col=0)
-df_KIRC_KIRP = pd.read_csv(f"./ExpressionLevels_KIRC_KIRP.csv", sep="\t", index_col=0)
+df_KICH_KIRC = pd.read_csv(f"./csvs/ExpressionLevels_KICH_KIRC.csv", sep="\t", index_col=0)
+df_KICH_KIRP = pd.read_csv(f"./csvs/ExpressionLevels_KICH_KIRP.csv", sep="\t", index_col=0)
+df_KIRC_KIRP = pd.read_csv(f"./csvs/ExpressionLevels_KIRC_KIRP.csv", sep="\t", index_col=0)
 
 def analyze_tumor_pair(csv_file_path, json_labels_path, return_stats=False):
 
@@ -124,86 +124,80 @@ all_results = []
 
 # Pair 1: KIRC vs KIRP (Detailed Analysis)
 pair1, score1, pvals_target, X_target, y_target = analyze_tumor_pair(
-    './ExpressionLevels_KIRC_KIRP.csv', 
-    './metadata.json', 
+    './csvs/ExpressionLevels_KIRC_KIRP.csv', 
+    './json/metadata.json', 
     return_stats=True
 )
 all_results.append({"Pair": pair1, "Score": score1})
 
 # Pair 2: KICH vs KIRC
-pair2, score2 = analyze_tumor_pair('./ExpressionLevels_KICH_KIRC.csv', './metadata.json')
+pair2, score2 = analyze_tumor_pair('./csvs/ExpressionLevels_KICH_KIRC.csv', './json/metadata.json')
 all_results.append({"Pair": pair2, "Score": score2})
 
 # Pair 3: KICH vs KIRP
-pair3, score3 = analyze_tumor_pair('./ExpressionLevels_KICH_KIRP.csv', './metadata.json')
+pair3, score3 = analyze_tumor_pair('./csvs/ExpressionLevels_KICH_KIRP.csv', './json/metadata.json')
 all_results.append({"Pair": pair3, "Score": score3})
 
-
 # --- Clock Genes vs Tumor Genes Analysis ---
-print("\n--- Running Clock Gene Analysis (on KIRC vs KIRP) ---")
 
 # 1. Identify Top 200 Tumor Genes
 gene_pvals = pd.Series(pvals_target, index=X_target.columns)
-top_200_tumor_genes = gene_pvals.sort_values().head(200).index
+top_200_tumor_genes = gene_pvals.sort_values().head(200)
+top200 = gene_pvals.sort_values().head(200).index
+top_200_tumor_genes_df = pd.DataFrame({
+    "gene": top_200_tumor_genes.index,
+    "p_value": top_200_tumor_genes.values
+})
 
 # 2. Load Clock Genes
-try:
-    clock_df = pd.read_csv('ClockExpressionLevels.csv', header=None)
-    clock_gene_list = clock_df[0].values.tolist() 
+
+clock_df = pd.read_csv('./csvs/ClockExpressionLevels.csv', header=None)
+clock_gene_list = clock_df[0].values.tolist() 
     
-    valid_clock_genes = [g for g in clock_gene_list if g in X_target.columns]
-    print(f"Found {len(valid_clock_genes)} valid clock genes out of {len(clock_gene_list)}.")
+valid_clock_genes = [g for g in clock_gene_list if g in X_target.columns]
+   
 
-    if len(valid_clock_genes) > 0:
-        # 3. P-Value Analysis for Clock Genes
-        t1, t2 = y_target.unique()
+t1, t2 = y_target.unique()
         
-        X_clock = X_target[valid_clock_genes]
-        group1_clock = X_clock[y_target == t1]
-        group2_clock = X_clock[y_target == t2]
+X_clock = X_target[valid_clock_genes]
+group1_clock = X_clock[y_target == t1]
+group2_clock = X_clock[y_target == t2]
 
-        t_stats_clock, p_vals_clock = stats.ttest_ind(group1_clock, group2_clock)
+t_stats_clock, p_vals_clock = stats.ttest_ind(group1_clock, group2_clock)
         
-        # Results table
-        clock_results = pd.DataFrame({
-            'Gene': valid_clock_genes,
-            'P_Value': p_vals_clock,
-            'Log2FC': group1_clock.mean() - group2_clock.mean()
-        }).sort_values('P_Value')
-        
-        clock_results.to_csv("Clock_Genes_Analysis.csv", index=False)
-        print("Clock genes p-value analysis saved.")
 
-        # 4. Correlation: Clock Genes vs Top 200 Tumor Genes
-        data_clock = X_target[valid_clock_genes]
-        data_tumor = X_target[top_200_tumor_genes]
+clock_results = pd.DataFrame({
+    'Gene': valid_clock_genes,
+    'P_Value': p_vals_clock,
+    'Log2FC': group1_clock.mean() - group2_clock.mean()
+}).sort_values('P_Value')
         
-        combined_data = pd.concat([data_clock, data_tumor], axis=1)
-        full_corr = combined_data.corr()
+clock_results.to_csv("./csvs/Clock_Genes_Analysis.csv", index=False)
+
+# 4. Correlation: Clock Genes vs Top 200 Tumor Genes
+data_clock = X_target[valid_clock_genes]
+data_tumor = X_target[top200]
         
-        clock_tumor_corr = full_corr.loc[valid_clock_genes, top_200_tumor_genes]
-
-        plt.figure(figsize=(14, 8))
-        sns.heatmap(clock_tumor_corr, 
-                    cmap='coolwarm', 
-                    center=0, 
-                    xticklabels=False, 
-                    yticklabels=True)
+combined_data = pd.concat([data_clock, data_tumor], axis=1)
+full_corr = combined_data.corr()
         
-        plt.title(f"Correlation: {len(valid_clock_genes)} Clock Genes vs Top 200 Tumor Genes\n({pair1})", fontweight="bold")
-        plt.xlabel("Top 200 Differentially Expressed Tumor Genes")
-        plt.ylabel("Clock Genes")
-        plt.tight_layout()
-        plt.savefig("plots/Correlation_Clock_vs_Tumor.png", dpi=300)
-        plt.close()
-        print("Clock vs Tumor correlation heatmap saved.")
+clock_tumor_corr = full_corr.loc[valid_clock_genes, top200]
 
-    else:
-        print("Error: None of the clock genes were found in the expression data.")
+plt.figure(figsize=(14, 8))
+sns.heatmap(clock_tumor_corr, 
+            cmap='coolwarm', 
+            center=0, 
+            xticklabels=False, 
+            yticklabels=True)
+        
+plt.title(f"Correlation: {len(valid_clock_genes)} Clock Genes vs Top 200 Tumor Genes\n({pair1})", fontweight="bold")
+plt.xlabel("Top 200 Differentially Expressed Tumor Genes")
+plt.ylabel("Clock Genes")
+plt.tight_layout()
+plt.savefig("plots/Correlation_Clock_vs_Tumor.png", dpi=300)
+plt.close()
 
-except Exception as e:
-    print(f"Could not process clock genes: {e}")
-    
 # saving results
 results_df = pd.DataFrame(all_results).sort_values(by='Score', ascending=False)
-results_df.to_csv('./math_results.csv', index=True)
+results_df.to_csv('./csvs/math_results.csv', index=True)
+top_200_tumor_genes_df.to_csv('./csvs/200MostDiffGenes_KICH_KIRC.csv', index=False)
