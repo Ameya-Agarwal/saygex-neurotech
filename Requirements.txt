@@ -1,6 +1,7 @@
-Numpy
-Pandas
+numpy
+pandas
 matplotlib
 seaborn
 scipy
 scikit-learn
+glob
