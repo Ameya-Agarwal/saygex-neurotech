@@ -1,0 +1,227 @@
+import pandas as pd
+import numpy as np
+import json
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_score
+import seaborn as sns
+import matplotlib.pyplot as plt
+from scipy import stats
+import os
+
+os.makedirs("plots", exist_ok=True)
+
+df_KICH_KIRC = pd.read_csv(f"./csvs/ExpressionLevels_KICH_KIRC.csv", sep="\t", index_col=0)
+df_KICH_KIRP = pd.read_csv(f"./csvs/ExpressionLevels_KICH_KIRP.csv", sep="\t", index_col=0)
+df_KIRC_KIRP = pd.read_csv(f"./csvs/ExpressionLevels_KIRC_KIRP.csv", sep="\t", index_col=0)
+
+def analyze_tumor_pair(csv_file_path, json_labels_path, return_stats=False):
+
+    # 1. Read CSV (Default separator to avoid errors)
+    df_raw = pd.read_csv(csv_file_path, index_col=0) 
+        
+    with open(json_labels_path) as f:
+        labels_dict = json.load(f)
+
+    df_T = df_raw.transpose()
+    df_T['Tumor_Type'] = df_T.index.map(labels_dict)
+
+    tumor_types = df_T['Tumor_Type'].unique()
+    
+    if len(tumor_types) < 2:
+        raise ValueError(f"Found {len(tumor_types)} tumor types. Check separator or JSON.")
+
+    t1, t2 = tumor_types
+    pair_name = f"{t1} vs {t2}"
+
+    df_T = df_T.dropna(axis=1, how='any')
+    X = df_T.drop('Tumor_Type', axis=1)
+    y = df_T['Tumor_Type']
+    
+    # --- PCA ---
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    pca = PCA(n_components=2)
+    principal_components = pca.fit_transform(X_scaled)
+    
+    sil_score = silhouette_score(principal_components, y)
+    
+    # --- Volcano ---
+    group1 = X[y == t1]
+    group2 = X[y == t2]
+    
+    log2_fc = group1.mean() - group2.mean()
+    
+    t_stats, p_vals = stats.ttest_ind(group1, group2)
+    p_vals = np.where(p_vals == 0, 1e-300, p_vals)
+    neg_log_pval = -np.log10(p_vals)
+
+    # Volcano coloring
+    sig = (neg_log_pval > -np.log10(0.05)) & (abs(log2_fc) > 1)
+    up = sig & (log2_fc > 1)
+    down = sig & (log2_fc < -1)
+
+    # --- PLOT PCA ---
+    plt.figure(figsize=(7, 6))
+    sns.scatterplot(x=principal_components[:, 0],
+                    y=principal_components[:, 1],
+                    hue=y,
+                    s=90,
+                    alpha=0.9,
+                    palette="Set1")
+    
+    plt.title(f"PCA: {pair_name}\nSilhouette: {sil_score:.3f}", fontweight="bold")
+    plt.xlabel(f"PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)")
+    plt.ylabel(f"PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)")
+    
+    plt.tight_layout()
+    plt.grid(alpha=0.3)
+    plt.savefig(f"plots/PCA_{t1}_vs_{t2}.png", dpi=300)
+    plt.close()
+
+    # --- PLOT VOLCANO ---
+    plt.figure(figsize=(7, 6))
+
+    # non-significant
+    plt.scatter(log2_fc[~sig], neg_log_pval[~sig],
+                color="lightgrey", s=12, alpha=0.6, label="Not significant")
+
+    # upregulated (positive log2FC)
+    plt.scatter(log2_fc[up], neg_log_pval[up],
+                color="indianred", s=18, alpha=0.8,  label=f"Upregulated in {t1}")
+
+    # downregulated (negative log2FC)
+    plt.scatter(log2_fc[down], neg_log_pval[down],
+                color="steelblue", s=18, alpha=0.8, label=f"Upregulated in {t2}")
+
+    plt.axhline(-np.log10(0.05), color='black', linestyle='--')
+    plt.axvline(1, color='black', linestyle='--')
+    plt.axvline(-1, color='black', linestyle='--')
+
+    plt.title(f"Volcano Plot: {pair_name}", fontweight="bold")
+    plt.xlabel(f"Log2 Fold Change ({t1}/{t2})")
+    plt.ylabel("-Log10 P-Value")
+    plt.grid(alpha=0.3)
+    plt.legend()
+
+    plt.tight_layout()
+    plt.savefig(f"plots/Volcano_{t1}_vs_{t2}.png", dpi=300)
+    plt.close()
+
+    print(f"Analysis complete for {pair_name}. Score: {sil_score:.3f}\n")
+    
+    # --- KEY FIX: This must match the 5 variables you unpack below ---
+    if return_stats:
+        return pair_name, sil_score, p_vals, X, y 
+
+    return pair_name, sil_score
+
+    
+# --- Run the Analysis for all 3 Pairs ---
+all_results = []
+
+# Pair 1: KIRC vs KIRP (Detailed Analysis)
+pair1, score1, pvals_target, X_target, y_target = analyze_tumor_pair(
+    './csvs/ExpressionLevels_KIRC_KIRP.csv', 
+    './json/metadata.json', 
+    return_stats=True
+)
+all_results.append({"Pair": pair1, "Score": score1})
+
+# Pair 2: KICH vs KIRC
+pair2, score2 = analyze_tumor_pair('./csvs/ExpressionLevels_KICH_KIRC.csv', './json/metadata.json')
+all_results.append({"Pair": pair2, "Score": score2})
+
+# Pair 3: KICH vs KIRP
+pair3, score3 = analyze_tumor_pair('./csvs/ExpressionLevels_KICH_KIRP.csv', './json/metadata.json')
+all_results.append({"Pair": pair3, "Score": score3})
+
+# --- Clock Genes vs Tumor Genes Analysis ---
+
+# 1. Identify Top 200 Tumor Genes (by p-value from pair1)
+# pvals_target is an array aligned to X_target.columns (as returned)
+gene_pvals = pd.Series(pvals_target, index=X_target.columns)
+gene_pvals = gene_pvals.replace(0, 1e-300)  # safety
+top_200_tumor_genes = gene_pvals.sort_values().head(200)
+top200 = top_200_tumor_genes.index.tolist()
+top_200_tumor_genes_df = pd.DataFrame({
+    "gene": top_200_tumor_genes.index,
+    "p_value": top_200_tumor_genes.values
+})
+
+#compute Z-scores correctly using the full distribution (all genes)
+eps = 1e-8
+
+full_gene_means = X_target.mean(axis=0) 
+full_gene_stds = X_target.std(axis=0, ddof=1).replace(0, np.nan)
+
+full_gene_stds = full_gene_stds.fillna(eps)
+
+top_raw_df = X_target[top200].copy()
+
+top_z_df = top_raw_df.sub(full_gene_means[top200], axis=1).div(full_gene_stds[top200], axis=1)
+
+top_raw_df.to_csv('./csvs/top200_raw_expression.csv')
+top_z_df.to_csv('./csvs/top200_zscored_by_full_distribution.csv')
+
+clock_df = pd.read_csv('./csvs/ClockExpressionLevels.csv', header=None)
+clock_gene_list = clock_df[0].values.tolist() 
+    
+valid_clock_genes = [g for g in clock_gene_list if g in X_target.columns]
+
+t1, t2 = y_target.unique()
+        
+X_clock = X_target[valid_clock_genes]
+group1_clock = X_clock[y_target == t1]
+group2_clock = X_clock[y_target == t2]
+
+t_stats_clock, p_vals_clock = stats.ttest_ind(group1_clock, group2_clock)
+        
+clock_results = pd.DataFrame({
+    'Gene': valid_clock_genes,
+    'P_Value': p_vals_clock,
+    'Log2FC': group1_clock.mean() - group2_clock.mean()
+}).sort_values('P_Value')
+        
+clock_results.to_csv("./csvs/Clock_Genes_Analysis.csv", index=False)
+
+# 4. Correlation: Clock Genes vs Top 200 Tumor Genes
+# Also z-score clock genes using their full distribution for consistency
+# Compute full-distribution stats for clock genes too:
+clock_gene_means = X_target[valid_clock_genes].mean(axis=0)
+clock_gene_stds = X_target[valid_clock_genes].std(axis=0, ddof=1).replace(0, np.nan).fillna(eps)
+
+# z-score clocks across all samples
+clock_z_df = X_target[valid_clock_genes].sub(clock_gene_means, axis=1).div(clock_gene_stds, axis=1)
+
+# Use z-scored data for both sets
+data_clock = clock_z_df  # samples x clock_genes
+data_tumor = top_z_df    # samples x top200_genes (z-scored by full distribution)
+
+# Align samples (rows) just in case
+data_clock = data_clock.loc[data_tumor.index]
+
+combined_data = pd.concat([data_clock, data_tumor], axis=1)
+full_corr = combined_data.corr()
+
+clock_tumor_corr = full_corr.loc[valid_clock_genes, top200]
+
+plt.figure(figsize=(14, 8))
+sns.heatmap(clock_tumor_corr, 
+            cmap='coolwarm', 
+            center=0, 
+            xticklabels=False, 
+            yticklabels=True)
+        
+plt.title(f"Correlation: {len(valid_clock_genes)} Clock Genes vs Top 200 Tumor Genes\n({pair1})", fontweight="bold")
+plt.xlabel("Top 200 Differentially Expressed Tumor Genes")
+plt.ylabel("Clock Genes")
+plt.tight_layout()
+plt.savefig("plots/ZScored_Correlation_Clock_vs_Tumor.png", dpi=300)
+plt.close()
+
+# saving results
+results_df = pd.DataFrame(all_results).sort_values(by='Score', ascending=False)
+results_df.to_csv('./csvs/math_results.csv', index=True)
+top_200_tumor_genes_df.to_csv('./csvs/200MostDiffGenes_KICH_KIRC.csv', index=False)
