@@ -7,7 +7,6 @@ MAPPING_FILE = "metadata.json"
 
 
 FILES_TO_PROCESS = glob.glob("csvs/top200_raw_expression*.csv") + glob.glob("csvs/top200_zscored_by_full_distribution*.csv")
-# =================================================
 
 def map_sample_barcodes(csv_path, mapping_dict):
     
@@ -29,8 +28,7 @@ def map_sample_barcodes(csv_path, mapping_dict):
     else:
         print(f"  ! Warning: Low match rate (Index: {index_matches}, Cols: {col_matches}). Skipping.")
         return
-
-    # --- KEY CHANGE: Apply Mapping WITHOUT averaging duplicates ---
+        
     if target_axis == 'index':
         # Map the index. If a barcode isn't in the JSON, keep the original barcode.
         new_index = [mapping_dict.get(x, x) for x in df.index]
@@ -40,7 +38,6 @@ def map_sample_barcodes(csv_path, mapping_dict):
         new_cols = [mapping_dict.get(x, x) for x in df.columns]
         df.columns = new_cols
 
-    # Save
     filename, ext = os.path.splitext(csv_path)
     new_filename = f"{filename}_TumorLabels{ext}"
     
@@ -66,4 +63,5 @@ def main():
         map_sample_barcodes(file_path, mapping_dict)
 
 if __name__ == "__main__":
+
     main()
