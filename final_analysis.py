@@ -189,7 +189,7 @@ sns.heatmap(clock_tumor_corr,
             xticklabels=False, 
             yticklabels=True)
         
-plt.title(f"Correlation: {len(valid_clock_genes)} Clock Genes vs Top 200 Tumor Genes\n({pair1})", fontweight="bold")
+plt.title(f"Correlation: {len(valid_clock_genes)} Clock Genes vs Top 200 Tumor Genes\n({pair2})", fontweight="bold")
 plt.xlabel("Top 200 Differentially Expressed Tumor Genes")
 plt.ylabel("Clock Genes")
 plt.tight_layout()
@@ -200,3 +200,4 @@ plt.close()
 results_df = pd.DataFrame(all_results).sort_values(by='Score', ascending=False)
 results_df.to_csv('./csvs/math_results.csv', index=True)
 top_200_tumor_genes_df.to_csv('./csvs/200MostDiffGenes_KICH_KIRC.csv', index=False)
+
