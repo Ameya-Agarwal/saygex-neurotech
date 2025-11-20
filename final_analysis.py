@@ -122,16 +122,15 @@ def analyze_tumor_pair(csv_file_path, json_labels_path, return_stats=False):
 # --- Run the Analysis for all 3 Pairs ---
 all_results = []
 
-# Pair 1: KIRC vs KIRP (Detailed Analysis)
-pair1, score1, pvals_target, X_target, y_target = analyze_tumor_pair(
+# Pair 1: KIRC vs KIRP 
+pair1, score1 = analyze_tumor_pair(
     './csvs/ExpressionLevels_KIRC_KIRP.csv', 
     './json/metadata.json', 
-    return_stats=True
 )
 all_results.append({"Pair": pair1, "Score": score1})
 
-# Pair 2: KICH vs KIRC
-pair2, score2 = analyze_tumor_pair('./csvs/ExpressionLevels_KICH_KIRC.csv', './json/metadata.json')
+# Pair 2: KICH vs KIRC (Detailed Analysis)
+pair2, score2, pvals_target, X_target, y_target = analyze_tumor_pair('./csvs/ExpressionLevels_KICH_KIRC.csv', './json/metadata.json', return_stats=True)
 all_results.append({"Pair": pair2, "Score": score2})
 
 # Pair 3: KICH vs KIRP
