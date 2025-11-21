@@ -27,7 +27,6 @@ valid_clock_genes = [gene for gene in weight_map.keys() if gene in df_expr.colum
 clock_scores = pd.Series(0.0, index=df_expr.index)
 for gene in valid_clock_genes:
         weight = weight_map[gene]
-  
         clock_scores += df_expr[gene] * weight
  
   
@@ -50,6 +49,7 @@ final_output = top_100[['Correlation']]
 final_output.to_csv(OUTPUT_FILENAME)
     
     
+
 
 
 
