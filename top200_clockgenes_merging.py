@@ -21,6 +21,7 @@ clock = clock[["Gene"] + common_samples]
 combined = pd.concat([top200, clock], ignore_index=True)
 
 #saving
-combined.to_csv("top200_clock_combined.csv", index=False)
+combined.to_csv("csvs/top200_clock_combined.csv", index=False)
+
 
 
