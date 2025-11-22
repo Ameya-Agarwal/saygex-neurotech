@@ -3,52 +3,46 @@ import numpy as np
 
 FILE_EXPRESSION = './csvs/top200+clock_combined.csv'
 FILE_WEIGHTS = './csvs/WeightedClockGenes.csv'
-OUTPUT_FILENAME = './csvs/top_100_correlated_genes.csv'
+OUTPUT_FILENAME = './csvs/top100_correlation_values.csv'
 
-    # load file
-df_expr = pd.read_csv(FILE_EXPRESSION, index_col=0)
+   # load and transpose
+df_expr = pd.read_csv(FILE_EXPRESSION, index_col=0).T
+df_clock_info = pd.read_csv(FILE_WEIGHTS)
     
-    # transpose 
-df_expr = df_expr.T
-    
-    # load weights
-df_weights = pd.read_csv(FILE_WEIGHTS)
-    
-  
-    # create a dictionary for clock genes and respective weights
-weight_map = dict(zip(df_weights['Gene'], df_weights['Weight']))
-  
+   # create dictionary
+clock_weight_map = dict(zip(df_clock_info['Gene'], df_clock_info['Score']))
    
-    # unnessecary step making sure the clock genes being used are there in both files
-valid_clock_genes = [gene for gene in weight_map.keys() if gene in df_expr.columns]
-    
-   
-    # create series for score with sample names
-clock_scores = pd.Series(0.0, index=df_expr.index)
-for gene in valid_clock_genes:
-        weight = weight_map[gene]
-        clock_scores += df_expr[gene] * weight
- 
-  
+clock_genes = [g for g in clock_weight_map.keys() if g in df_expr.columns]
+candidate_genes = [g for g in df_expr.columns if g not in clock_genes]
+
+df_candidates = df_expr[candidate_genes]
+df_clocks = df_expr[clock_genes]
+
     # calculate correlation
-correlations = df_expr.corrwith(clock_scores, axis=0)
-
-    # convert to dataframe
-results_df = correlations.to_frame(name='Correlation')
-
-    # extract top 100
-results_df['Abs_Correlation'] = results_df['Correlation'].abs()
+corr_matrix = pd.concat([df_candidates, df_clocks], axis=1).corr()
     
-    # sort
-top_100 = results_df.sort_values(by='Abs_Correlation', ascending=False).head(100)
+    # keeping only rows as candidates, columns as clock
+target_matrix = corr_matrix.loc[candidate_genes, clock_genes]
+
+
+    # create series
+weights_vector = pd.Series({g: clock_weight_map[g] for g in clock_genes})
     
-    # remove temporary column
-final_output = top_100[['Correlation']]
+    # align
+weights_vector = weights_vector.reindex(target_matrix.columns)
+
+weighted_scores = target_matrix.abs().dot(weights_vector)
+
+    # get top 100
+top_100 = weighted_scores.sort_values(ascending=False).head(100)
+    
+    # convert to dataframe 
+output_df = top_100.to_frame(name='Weighted_Relevance_Score')
 
     # save
-final_output.to_csv(OUTPUT_FILENAME)
+output_df.to_csv(OUTPUT_FILENAME)
     
-    
+
 
 
 
