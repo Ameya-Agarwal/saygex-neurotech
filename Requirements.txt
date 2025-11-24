@@ -1,2 +1,7 @@
 Numpy
 Pandas
+scipy
+scikit-learn
+matplotlib
+xgboost
+seaborn
