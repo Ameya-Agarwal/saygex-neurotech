@@ -38,7 +38,7 @@ python pipeline.py
 ```
 
 Stages 1–4 take about four minutes. Add `--validate` for the statistical
-controls in stage 5, which take around 40 minutes:
+controls in stage 5, which took ~45 minutes on a laptop CPU:
 
 ```bash
 python pipeline.py --validate

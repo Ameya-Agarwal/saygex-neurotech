@@ -143,7 +143,7 @@ Supervised top-k selection, balanced accuracy:
 | k | 5 | 10 | 14 | 25 | 50 | 111 | 200 | 500 | 1000 | 5000 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | LinearSVC | 0.9841 | 0.9850 | 0.9841 | 0.9860 | 0.9601 | 0.9475 | 0.9542 | 0.9589 | 0.9657 | 0.9689 |
-| XGBoost | 0.9811 | 0.9801 | **0.9897** | 0.9734 | 0.9743 | 0.9801 | 0.9801 | 0.9647 | 0.9734 | — |
+| XGBoost | 0.9811 | 0.9801 | **0.9897** | 0.9734 | 0.9743 | 0.9801 | 0.9801 | 0.9647 | 0.9734 | 0.9743 |
 
 **This is the finding that reframes the whole project.**
 
@@ -157,6 +157,24 @@ than 0.0076, so do not read single points — read the shape.
 
 Random panels for contrast: 0.8901 ± 0.0676 at k=5, rising to 0.9687 ± 0.0045 at
 k=5000. Even five random genes clear 0.89 balanced accuracy.
+
+### Verdict
+
+Printed verbatim by `stages/stage5_validation.py` at the end of the run:
+
+```
+E1_random                     LinearSVC  clock panel does NOT beat its null (p=0.6279)
+E1_random                     XGBoost    clock panel does NOT beat its null (p=0.6113)
+E2_expression_matched         LinearSVC  clock panel does NOT beat its null (p=0.8704)
+E2_expression_matched         XGBoost    clock panel does NOT beat its null (p=0.8472)
+E3_random_anchors             LinearSVC  clock anchors does NOT beat random anchors (p=0.7774)
+E3_expression_matched_anchors LinearSVC  clock anchors does NOT beat random anchors (p=0.7043)
+E3_random_anchors             XGBoost    clock anchors does NOT beat random anchors (p=0.1229)
+E3_expression_matched_anchors XGBoost    clock anchors does NOT beat random anchors (p=0.1196)
+```
+
+Eight tests, eight negatives. No configuration of model, null type, or panel
+reaches significance.
 
 ## 5. Interpretation
 
@@ -216,6 +234,9 @@ controls reject.
 ```bash
 python pipeline.py --validate
 ```
+
+Stages 1-4 take ~4 minutes; stage 5 took 2689s (~45 min) on a laptop CPU,
+300 draws per null.
 
 Raw outputs: `results/csvs/stage4_results.csv`,
 `results/csvs/stage5_e1_e2_nulls.csv`, `results/csvs/stage5_e3_ablation.csv`,
