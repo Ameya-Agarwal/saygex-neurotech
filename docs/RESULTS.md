@@ -63,21 +63,30 @@ apart" are different claims, and only the first one survives.
 
 ## 3. Classification benchmark (leak-free)
 
-| Panel | Model | Balanced acc | ROC-AUC | Plain acc |
-|---|---|---:|---:|---:|
-| anchor panel (100+11) | XGBoost | **0.9878** | 0.9951 | 0.9783 |
-| top-200 by Welch | XGBoost | 0.9801 | 0.9956 | 0.9767 |
-| all 20,530 genes | XGBoost | 0.9743 | 0.9976 | 0.9783 |
-| all 20,530 genes | LinearSVC | 0.9738 | 0.9941 | 0.9533 |
-| top-200 by Welch | LinearSVC | 0.9542 | 0.9806 | 0.9667 |
-| anchor panel (100+11) | LinearSVC | 0.9484 | 0.9782 | 0.9683 |
-| clock only (14) | LinearSVC | 0.9391 | 0.9815 | 0.9517 |
-| clock only (14) | XGBoost | 0.9271 | 0.9831 | 0.9533 |
+| Panel | Model | Balanced acc | sd across folds | ROC-AUC | Plain acc |
+|---|---|---:|---:|---:|---:|
+| anchor panel (100+11) | XGBoost | **0.9878** | ± 0.0038 | 0.9951 | 0.9783 |
+| top-200 by Welch | XGBoost | 0.9801 | ± 0.0167 | 0.9956 | 0.9767 |
+| all 20,530 genes | XGBoost | 0.9743 | ± 0.0305 | 0.9976 | 0.9783 |
+| all 20,530 genes | LinearSVC | 0.9738 | ± 0.0120 | 0.9941 | 0.9533 |
+| top-200 by Welch | LinearSVC | 0.9542 | ± 0.0311 | 0.9806 | 0.9667 |
+| anchor panel (100+11) | LinearSVC | 0.9484 | ± 0.0405 | 0.9782 | 0.9683 |
+| clock only (14) | LinearSVC | 0.9391 | ± 0.0512 | 0.9815 | 0.9517 |
+| clock only (14) | XGBoost | 0.9271 | ± 0.0499 | 0.9831 | 0.9533 |
 
 Read alone, this table looks like a win: the clock-anchored panel tops it, and
 14 clock genes alone reach 0.9391 against a 0.5000 floor.
 
-That reading does not survive stage 5.
+**The sd column is why that reading is already shaky before stage 5.** Fold-to-fold
+spread reaches ± 0.0512 — nearly seven times the 0.0076 one-sample resolution,
+and larger than every gap in the table. The bottom six rows all overlap inside
+one standard deviation of each other. The ranking is mostly fold-assignment
+noise, and only the top row has a spread (± 0.0038) tight enough to be taken at
+face value.
+
+So the honest reading of this table on its own is "every panel lands somewhere
+around 0.93–0.99 and they are hard to separate" — not "the anchor panel wins".
+Stage 5 then explains why they are hard to separate.
 
 ## 4. Validation
 
